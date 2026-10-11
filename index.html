@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Трекер фарма — Black Desert</title>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Philosopher:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  --bg: #eceef2; --panel: #ffffff; --panel-2: #f4f5f8; --line: #d6dae2;
+  --text: #1c2028; --muted: #646b79; --gold: #8a6420; --gold-bg: #f3e8d0;
+  --good: #2f7a45; --bad: #b3473b; --btn-text: #ffffff; --accent-btn: #8a6420;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #13161b; --panel: #1b1f27; --panel-2: #222731; --line: #2f3643;
+    --text: #e8e6df; --muted: #8e95a3; --gold: #d3a95a; --gold-bg: #2b2517;
+    --good: #7bc28a; --bad: #e08a7e; --btn-text: #15171c; --accent-btn: #d3a95a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #13161b; --panel: #1b1f27; --panel-2: #222731; --line: #2f3643;
+  --text: #e8e6df; --muted: #8e95a3; --gold: #d3a95a; --gold-bg: #2b2517;
+  --good: #7bc28a; --bad: #e08a7e; --btn-text: #15171c; --accent-btn: #d3a95a;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+  font-family: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px; line-height: 1.45;
+}
+.wrap { max-width: 880px; margin: 0 auto; padding: 18px 14px 60px; }
+h1, h2, .num { font-family: "Philosopher", Georgia, "Times New Roman", serif; font-weight: 700; }
+h1 { font-size: 26px; margin: 0 0 2px; letter-spacing: .2px; }
+h2 { font-size: 19px; margin: 0 0 12px; }
+.sub { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* spot tabs */
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.tab { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 8px 12px; text-align: left; }
+.tab small { display: block; color: var(--muted); font-size: 12px; }
+.tab[aria-pressed="true"] { border-color: var(--gold); background: var(--gold-bg); }
+.tab[aria-disabled="true"] { opacity: .5; }
+.toast { min-height: 20px; color: var(--bad); font-size: 13px; margin: -6px 0 8px; }
+
+/* session */
+.hero { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.clock { font-size: 56px; line-height: 1; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.clock-label { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat { background: var(--panel-2); border-radius: 8px; padding: 10px 12px; }
+.stat .k { color: var(--muted); font-size: 12px; }
+.stat .v { font-size: 22px; font-family: "Philosopher", Georgia, serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .v.gold { color: var(--gold); }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 9px 14px; font-weight: 500; }
+.btn:hover { border-color: var(--gold); }
+.btn.primary { background: var(--accent-btn); color: var(--btn-text); border-color: var(--accent-btn); font-weight: 600; }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.extra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.extra label { color: var(--muted); font-size: 13px; }
+
+/* inputs */
+input[type="text"], input[type="number"], input[type="password"], select {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; min-width: 0;
+}
+input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--gold); }
+
+/* items */
+.item { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+.item:first-of-type { border-top: 0; }
+.item-name { font-weight: 600; }
+.item-meta { color: var(--muted); font-size: 13px; }
+.item-count { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.count { font-size: 30px; min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; line-height: 1; }
+.pm { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; min-width: 46px; padding: 0 10px; height: 42px; font-weight: 600; }
+.pm.plus { border-color: var(--gold); color: var(--gold); }
+.pm:active { transform: translateY(1px); }
+.empty { color: var(--muted); padding: 8px 0; }
+
+.inv { gap: 10px; }
+.inv label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 2px; }
+.inv input { width: 92px; }
+/* manage */
+details { margin-bottom: 14px; }
+summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+.row .grow { flex: 1 1 160px; }
+.mrow { display: grid; grid-template-columns: 1fr 120px auto auto auto; gap: 8px; align-items: center; padding: 6px 0; }
+.mrow label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--muted); }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 0; }
+
+/* history */
+.hist { border-top: 1px solid var(--line); padding: 10px 0; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+.hist:first-of-type { border-top: 0; }
+.hist .t { font-weight: 600; }
+.hist .m { color: var(--muted); font-size: 13px; }
+.hist .s { text-align: right; font-weight: 600; color: var(--gold); }
+.hist .x { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 8px; }
+
+.hedit { border-top: 1px solid var(--line); padding: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+.hedit .he-item { display: grid; grid-template-columns: 1fr 90px auto; gap: 8px; align-items: center; }
+.hedit .he-item.he-inv { grid-template-columns: 1fr 80px 80px auto; }
+.hedit label { color: var(--muted); font-size: 13px; }
+.hedit .toast { margin: 0; }
+@media (min-width: 640px) {
+  .hero { grid-template-columns: auto 1fr; align-items: end; gap: 28px; }
+  .clock { font-size: 72px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .mrow { grid-template-columns: 1fr 1fr; }
+  .item { grid-template-columns: 1fr; }
+  .item-count { justify-content: space-between; }
+  .count { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Трекер фарма</h1>
+  <p class="sub">Black Desert · считайте дроп за сессию, серебро и серебро в час</p>
+
+  <section class="panel" id="authPanel" aria-label="Вход"></section>
+  <p class="hint" id="syncStatus" role="status" style="margin:-6px 0 14px"></p>
+  <div class="tabs" id="tabs" role="group" aria-label="Споты"></div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <section class="panel" id="session" aria-label="Сессия"></section>
+
+  <section class="panel">
+    <h2>Дроп за сессию</h2>
+    <div id="items"></div>
+  </section>
+
+  <details class="panel">
+    <summary>Споты и предметы</summary>
+    <div class="row" style="margin-top:12px">
+      <input class="grow" type="text" id="newSpotName" placeholder="Название спота, например: Руины храма Тунра">
+      <input type="number" id="newSpotLvl" placeholder="Ур." min="1" max="999" style="width:80px">
+      <button class="btn" data-action="addSpot">Добавить спот</button>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    <div id="manage"></div>
+    <div class="row">
+      <input class="grow" type="text" id="newItemName" placeholder="Название предмета">
+      <input type="text" id="newItemPrice" placeholder="Цена: 1500000 или 1.5м" style="width:170px" inputmode="decimal">
+      <label style="display:flex;gap:5px;align-items:center;color:var(--muted);font-size:13px"><input type="checkbox" id="newItemMarket" checked> рынок</label>
+      <label style="display:flex;gap:5px;align-items:center;color:var(--muted);font-size:13px"><input type="checkbox" id="newItemInv"> по инвентарю</label>
+      <button class="btn primary" data-action="addItem">Добавить предмет</button>
+    </div>
+    <p class="hint">Галочка «по инвентарю»: вместо кнопок +1/+10 вы вводите, сколько предмета было в инвентаре и сколько стало, дроп считается как разница. Подходит для Чёрного камня, который падает сразу в инвентарь. <br>Цену можно писать с суффиксом: 1.5м = 1 500 000, 250к = 250 000, 2млрд = 2 000 000 000. Галочка «рынок» — из цены вычитается налог рынка, без галочки (торговец NPC) цена считается полностью.</p>
+    <div class="row">
+      <label for="tax" style="color:var(--muted);font-size:13px">Вы получаете с рынка, %</label>
+      <input type="number" id="tax" min="1" max="100" step="0.1" style="width:90px">
+      <span class="hint" style="margin:0">65 — без пакета, 84.5 — с Value Pack, больше — с бонусами.</span>
+    </div>
+  </details>
+
+  <section class="panel">
+    <div class="row" style="justify-content:space-between;margin-top:0"><h2 style="margin:0">История сессий</h2><button class="btn" id="pdfBtn" data-action="exportPdf">Сохранить в PDF</button></div>
+    <div class="hint" id="pdfMsg" role="status"></div>
+    <div id="history"></div>
+  </section>
+
+  <p class="hint">Данные сохраняются в браузере и синхронизируются между устройствами, если вы вошли в один и тот же аккаунт Claude.</p>
+</div>
+
+<script>
+/* ВПИШИТЕ данные своего проекта Supabase (Project Settings → API). Ключ anon публичный, безопасность обеспечивают правила RLS из supabase-setup.sql. */
+window.BDO_CONFIG = {
+  url: 'https://pmwdtkakiounzhbhxoin.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtd2R0a2FraW91bnpoYmh4b2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MjU1NTksImV4cCI6MjEwNzMwMTU1OX0.WfQLOiMQmbNMHZQPEiLlax_hRnbptpQVe8rHznQKBv4'
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+(function () {
+  var KEY = 'bdo-farm-tracker-v1';
+  var uid = function () { return Math.random().toString(36).slice(2, 9); };
+
+  function defaults() {
+    var id = uid();
+    return {
+      spots: [{ id: id, name: 'Руины храма Тунра', level: 64, items: [] }],
+      current: id,
+      session: { counts: {}, extra: 0, elapsedMs: 0, runningSince: null, inv: {} },
+      history: [],
+      tax: 65
+    };
+  }
+  var S = defaults();
+  try {
+    var raw = localStorage.getItem(KEY);
+    if (raw) {
+      var p = JSON.parse(raw);
+      if (p && p.spots && p.spots.length) { S = Object.assign(defaults(), p); S.session = Object.assign(defaults().session, p.session || {}); }
+    }
+  } catch (e) {}
+  function persistLocal() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function contentOfLocal() { return { spots: S.spots, current: S.current, session: S.session, tax: S.tax, history: S.history }; }
+  function canon(v) {
+    if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
+    if (v && typeof v === 'object') {
+      return '{' + Object.keys(v).sort().filter(function (k) { return v[k] !== undefined; }).map(function (k) { return JSON.stringify(k) + ':' + canon(v[k]); }).join(',') + '}';
+    }
+    return JSON.stringify(v);
+  }
+  var revSig = canon(contentOfLocal());
+  function save() {
+    var sig = canon(contentOfLocal());
+    if (sig !== revSig) { revSig = sig; S.rev = Date.now(); }
+    persistLocal();
+    schedulePush();
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var nf = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
+
+  function fmtSilver(n) {
+    n = Math.round(n);
+    var a = Math.abs(n);
+    if (a >= 1e9) return nf.format(n / 1e9) + ' млрд';
+    if (a >= 1e6) return nf.format(n / 1e6) + ' млн';
+    return nf.format(n);
+  }
+  function parseSilver(str) {
+    var s = String(str).trim().toLowerCase().replace(/\s/g, '').replace(',', '.');
+    var m = s.match(/^(\d*\.?\d+)(млрд|b|млн|mm|m|м|тыс|k|к)?$/);
+    if (!m) return NaN;
+    var mult = { 'млрд': 1e9, b: 1e9, 'млн': 1e6, mm: 1e6, m: 1e6, 'м': 1e6, 'тыс': 1e3, k: 1e3, 'к': 1e3 }[m[2]] || 1;
+    return Math.round(parseFloat(m[1]) * mult);
+  }
+  function fmtTime(ms) {
+    var t = Math.floor(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    var z = function (x) { return String(x).padStart(2, '0'); };
+    return z(h) + ':' + z(m) + ':' + z(s);
+  }
+  function fmtDur(ms) {
+    var m = Math.round(ms / 60000), h = Math.floor(m / 60);
+    return h ? h + ' ч ' + (m % 60) + ' мин' : m + ' мин';
+  }
+
+  function spot() { return S.spots.find(function (x) { return x.id === S.current; }) || S.spots[0]; }
+  function itemCount(it) {
+    if (it.inv) {
+      var v = S.session.inv && S.session.inv[it.id];
+      return v ? Math.max(0, (v.now || 0) - (v.start || 0)) : 0;
+    }
+    return S.session.counts[it.id] || 0;
+  }
+  function invControls(it, n) {
+    var v = (S.session.inv && S.session.inv[it.id]) || { start: 0, now: 0 };
+    return '<div class="item-count inv"><label>Было<input type="number" min="0" inputmode="numeric" data-inv="start" data-id="' + it.id + '" value="' + (v.start || 0) + '"></label>' +
+      '<label>Сейчас<input type="number" min="0" inputmode="numeric" data-inv="now" data-id="' + it.id + '" value="' + (v.now || 0) + '"></label>' +
+      '<div class="count num" id="c-' + it.id + '">' + n + '</div></div>';
+  }
+  function elapsed() { var s = S.session; return s.elapsedMs + (s.runningSince ? Date.now() - s.runningSince : 0); }
+  function sessionActive() {
+    var s = S.session;
+    return s.elapsedMs > 0 || !!s.runningSince || s.extra > 0 || Object.keys(s.counts).some(function (k) { return s.counts[k] > 0; }) || Object.keys(s.inv || {}).some(function (k) { return s.inv[k].now > s.inv[k].start; });
+  }
+  function itemValue(it, n) { return n * it.price * (it.market ? S.tax / 100 : 1); }
+  function totalSilver() {
+    var sp = spot(), t = S.session.extra || 0;
+    sp.items.forEach(function (it) { t += itemValue(it, itemCount(it)); });
+    return t;
+  }
+  function perHour(v) {
+    var ms = elapsed();
+    if (ms < 60000) return null;
+    return v / (ms / 3600000);
+  }
+
+  function toast(msg) {
+    $('toast').textContent = msg || '';
+    if (msg) setTimeout(function () { if ($('toast').textContent === msg) $('toast').textContent = ''; }, 3500);
+  }
+
+  /* ---------- render ---------- */
+  function renderTabs() {
+    var locked = sessionActive();
+    $('tabs').innerHTML = S.spots.map(function (sp) {
+      var cur = sp.id === S.current;
+      return '<button class="tab" data-action="spot" data-id="' + sp.id + '" aria-pressed="' + cur + '" aria-disabled="' + (locked && !cur) + '">' +
+        esc(sp.name) + '<small>Ур. ' + esc(sp.level || '—') + '</small></button>';
+    }).join('');
+  }
+
+  function renderSession() {
+    var running = !!S.session.runningSince;
+    var active = sessionActive();
+    var total = totalSilver();
+    var ph = perHour(total);
+    $('session').innerHTML =
+      '<div class="hero"><div><div class="clock-label">' + esc(spot().name) + '</div>' +
+      '<div class="clock num" id="clock">' + fmtTime(elapsed()) + '</div></div>' +
+      '<div class="stats"><div class="stat"><div class="k">Серебро за сессию</div><div class="v gold" id="total">' + fmtSilver(total) + '</div></div>' +
+      '<div class="stat"><div class="k">Серебро в час</div><div class="v" id="perhour">' + (ph === null ? '—' : fmtSilver(ph)) + '</div></div></div></div>' +
+      '<div class="controls" style="margin-top:14px">' +
+      '<button class="btn primary" data-action="toggle">' + (running ? 'Пауза' : (elapsed() > 0 ? 'Продолжить' : 'Старт')) + '</button>' +
+      '<button class="btn" data-action="finish"' + (active ? '' : ' disabled') + '>Завершить и сохранить</button>' +
+      '<button class="btn danger" data-action="reset"' + (active ? '' : ' disabled') + '>Сбросить</button></div>' +
+      '<div class="extra" style="margin-top:12px"><label for="extra">Серебро с хлама (трэш-лут)</label>' +
+      '<input type="text" id="extra" inputmode="decimal" style="width:150px" value="' + (S.session.extra || '') + '" placeholder="0 или 40м"></div>';
+  }
+
+  function renderItems() {
+    var sp = spot();
+    if (!sp.items.length) {
+      $('items').innerHTML = '<p class="empty">В этом споте пока нет предметов. Откройте «Споты и предметы» ниже и добавьте то, что падает: название и цену.</p>';
+      return;
+    }
+    $('items').innerHTML = sp.items.map(function (it) {
+      var n = itemCount(it);
+      var meta = (it.price ? fmtSilver(it.price) + ' за шт.' : 'цена не указана') + (it.market ? ' · рынок' : ' · торговец') + (it.inv ? ' · по инвентарю' : '');
+      return '<div class="item"><div><div class="item-name">' + esc(it.name) + '</div>' +
+        '<div class="item-meta">' + meta + '</div>' +
+        '<div class="item-meta" id="m-' + it.id + '">' + itemMeta(it, n) + '</div></div>' +
+        (it.inv ? invControls(it, n) : '<div class="item-count"><button class="pm" data-action="inc" data-id="' + it.id + '" data-n="-1" aria-label="Минус один">−1</button>' +
+        '<div class="count num" id="c-' + it.id + '">' + n + '</div>' +
+        '<button class="pm plus" data-action="inc" data-id="' + it.id + '" data-n="1">+1</button>' +
+        '<button class="pm plus" data-action="inc" data-id="' + it.id + '" data-n="10">+10</button>' +
+        '<button class="pm plus" data-action="inc" data-id="' + it.id + '" data-n="100">+100</button>' +
+        '<button class="pm plus" data-action="inc" data-id="' + it.id + '" data-n="10000">+10 000</button></div>') + '</div>';
+    }).join('');
+  }
+  function itemMeta(it, n) {
+    var ph = perHour(n);
+    var parts = [];
+    if (ph !== null) parts.push(nf.format(Math.round(ph * 10) / 10) + ' шт./час');
+    if (it.price) parts.push(fmtSilver(itemValue(it, n)) + ' серебра');
+    return parts.join(' · ') || '&nbsp;';
+  }
+
+  function renderManage() {
+    var sp = spot();
+    var h = '<div class="row"><input class="grow" type="text" data-field="spotName" value="' + esc(sp.name) + '" aria-label="Название спота">' +
+      '<input type="number" data-field="spotLvl" value="' + esc(sp.level || '') + '" style="width:80px" aria-label="Уровень">' +
+      '<button class="btn danger" data-action="delSpot"' + (S.spots.length < 2 ? ' disabled' : '') + '>Удалить спот</button></div>';
+    h += sp.items.map(function (it) {
+      return '<div class="mrow"><input type="text" data-field="itName" data-id="' + it.id + '" value="' + esc(it.name) + '" aria-label="Название">' +
+        '<input type="text" data-field="itPrice" data-id="' + it.id + '" value="' + it.price + '" inputmode="decimal" aria-label="Цена">' +
+        '<label><input type="checkbox" data-field="itMarket" data-id="' + it.id + '"' + (it.market ? ' checked' : '') + '> рынок</label>' +
+        '<label><input type="checkbox" data-field="itInv" data-id="' + it.id + '"' + (it.inv ? ' checked' : '') + '> по инвентарю</label>' +
+        '<button class="btn danger" data-action="delItem" data-id="' + it.id + '" aria-label="Удалить предмет">Удалить</button></div>';
+    }).join('');
+    $('manage').innerHTML = h;
+  }
+
+  function renderHistory() {
+    var list = S.history.slice().reverse();
+    if (!list.length) { $('history').innerHTML = '<p class="empty">Завершённые сессии появятся здесь.</p>'; return; }
+    var dur = 0, tot = 0;
+    list.forEach(function (x) { dur += x.durationMs; tot += x.total; });
+    var avg = dur >= 60000 ? tot / (dur / 3600000) : null;
+    var h = '<div class="totals"><div class="stat"><div class="k">Сессий</div><div class="v">' + list.length + '</div></div>' +
+      '<div class="stat"><div class="k">Всего времени</div><div class="v">' + fmtDur(dur) + '</div></div>' +
+      '<div class="stat"><div class="k">Всего серебра</div><div class="v gold">' + fmtSilver(tot) + '</div></div>' +
+      '<div class="stat"><div class="k">В среднем в час</div><div class="v">' + (avg === null ? '—' : fmtSilver(avg)) + '</div></div></div>';
+    h += list.map(function (x) {
+      if (edit && edit.id === x.id) return histForm();
+      var d = new Date(x.date);
+      var ph = x.durationMs >= 60000 ? fmtSilver(x.total / (x.durationMs / 3600000)) + '/ч' : '—';
+      var items = x.items.filter(function (i) { return i.count > 0; }).map(function (i) { return esc(i.name) + ' ×' + i.count + (i.inv ? ' (было ' + nf.format(i.start || 0) + ' → стало ' + nf.format(i.now || 0) + ')' : ''); }).join(', ');
+      return '<div class="hist"><div><div class="t">' + esc(x.spotName) + (x.level ? ' · Ур. ' + esc(x.level) : '') + '</div>' +
+        '<div class="m">' + d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) + ' · ' + fmtDur(x.durationMs) + ' · ' + ph + '</div></div>' +
+        '<div class="s">' + fmtSilver(x.total) + '</div>' +
+        '<div class="x">' + (items || 'Без предметов') + (x.extra ? ' · хлам ' + fmtSilver(x.extra) : '') + '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:6px"><button class="btn" style="padding:4px 10px" data-action="editHist" data-id="' + x.id + '">Изменить</button>' +
+        '<button class="btn danger" style="padding:4px 10px" data-action="delHist" data-id="' + x.id + '">Удалить</button></div></div>';
+    }).join('');
+    $('history').innerHTML = h;
+  }
+
+  /* ---------- редактирование истории ---------- */
+  var edit = null;
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function toLocalInput(ms) {
+    var d = new Date(ms);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function findItem(name) {
+    var n = String(name).trim().toLowerCase();
+    if (!n) return null;
+    for (var i = 0; i < S.spots.length; i++) {
+      for (var j = 0; j < S.spots[i].items.length; j++) {
+        if (S.spots[i].items[j].name.trim().toLowerCase() === n) return S.spots[i].items[j];
+      }
+    }
+    return null;
+  }
+  function startEdit(id) {
+    var x = S.history.find(function (h) { return h.id === id; });
+    if (!x) return;
+    var mins = Math.round(x.durationMs / 60000);
+    edit = { id: id, d: {
+      spotName: x.spotName, level: x.level || '', date: x.date, h: Math.floor(mins / 60), m: mins % 60,
+      extra: String(x.extra || 0), total: String(Math.round(x.total)),
+      items: x.items.map(function (i) {
+        var p = i.price, mk = i.market;
+        if (p === undefined) { var f = findItem(i.name); if (f) { p = f.price; mk = f.market; } }
+        return { name: i.name, count: i.count, price: p, market: mk, inv: i.inv, start: i.start, now: i.now };
+      })
+    } };
+  }
+  function collectDraft() {
+    if (!edit) return;
+    var d = edit.d, g = function (id) { var e = $(id); return e ? e.value : ''; };
+    d.spotName = g('he-name'); d.level = g('he-lvl');
+    var dt = new Date(g('he-date')).getTime(); if (!isNaN(dt)) d.date = dt;
+    d.h = g('he-h'); d.m = g('he-m'); d.extra = g('he-extra'); d.total = g('he-total');
+    document.querySelectorAll('.he-item').forEach(function (r, i) {
+      var it = d.items[i]; if (!it) return;
+      it.name = r.querySelector('[data-k="n"]').value;
+      it.count = r.querySelector('[data-k="c"]') ? r.querySelector('[data-k="c"]').value : it.count;
+      if (it.inv) {
+        it.start = parseInt(r.querySelector('[data-k="s"]').value, 10) || 0;
+        it.now = parseInt(r.querySelector('[data-k="w"]').value, 10) || 0;
+        it.count = Math.max(0, it.now - it.start);
+      }
+      if (it.price === undefined) { var f = findItem(it.name); if (f) { it.price = f.price; it.market = f.market; } }
+    });
+  }
+  function hmsg(msg) { var e = $('he-msg'); if (e) e.textContent = msg || ''; }
+  function histForm() {
+    var d = edit.d;
+    var rows = d.items.map(function (i, idx) {
+      return '<div class="he-item' + (i.inv ? ' he-inv' : '') + '"><input type="text" data-k="n" value="' + esc(i.name) + '" placeholder="Предмет" aria-label="Название предмета">' +
+        (i.inv ? '<input type="number" min="0" data-k="s" value="' + esc(i.start || 0) + '" placeholder="Было" aria-label="Было в инвентаре" title="Было">' +
+        '<input type="number" min="0" data-k="w" value="' + esc(i.now || 0) + '" placeholder="Сейчас" aria-label="Стало в инвентаре" title="Сейчас">' : '<input type="number" min="0" data-k="c" value="' + esc(i.count) + '" aria-label="Количество">') +
+        '<button class="btn danger" data-action="histDelItem" data-i="' + idx + '" aria-label="Убрать предмет">Убрать</button></div>';
+    }).join('');
+    return '<div class="hedit">' +
+      '<div class="row"><input class="grow" type="text" id="he-name" value="' + esc(d.spotName) + '" aria-label="Название спота">' +
+      '<input type="number" id="he-lvl" value="' + esc(d.level) + '" style="width:80px" placeholder="Ур." aria-label="Уровень">' +
+      '<input type="datetime-local" id="he-date" value="' + toLocalInput(d.date) + '" aria-label="Дата и время"></div>' +
+      '<div class="row"><label for="he-h">Длительность</label>' +
+      '<input type="number" min="0" id="he-h" value="' + esc(d.h) + '" style="width:80px"><label for="he-h">ч</label>' +
+      '<input type="number" min="0" id="he-m" value="' + esc(d.m) + '" style="width:80px" aria-label="Минуты"><label for="he-m">мин</label></div>' +
+      '<div>' + rows + '</div>' +
+      '<div><button class="btn" data-action="histAddItem">Добавить предмет</button></div>' +
+      '<div class="row"><label for="he-extra">Хлам</label><input type="text" id="he-extra" value="' + esc(d.extra) + '" style="width:130px" inputmode="decimal">' +
+      '<label for="he-total">Всего серебра</label><input type="text" id="he-total" value="' + esc(d.total) + '" style="width:150px" inputmode="decimal">' +
+      '<button class="btn" data-action="histRecalc">Пересчитать по ценам</button></div>' +
+      '<div class="toast" id="he-msg" role="status"></div>' +
+      '<div class="controls"><button class="btn primary" data-action="saveHist">Сохранить</button>' +
+      '<button class="btn" data-action="cancelHist">Отмена</button></div></div>';
+  }
+
+  function renderAll() {
+    renderTabs(); renderSession(); renderItems(); renderManage(); renderHistory();
+    $('tax').value = S.tax;
+  }
+
+  function updateLive() {
+    var c = $('clock'); if (!c) return;
+    c.textContent = fmtTime(elapsed());
+    var total = totalSilver(), ph = perHour(total);
+    $('total').textContent = fmtSilver(total);
+    $('perhour').textContent = ph === null ? '—' : fmtSilver(ph);
+    spot().items.forEach(function (it) {
+      var m = $('m-' + it.id); if (m) m.innerHTML = itemMeta(it, itemCount(it));
+    });
+  }
+  function updateCountsOnly(id) {
+    var it = spot().items.find(function (x) { return x.id === id; });
+    var n = itemCount(it);
+    $('c-' + id).textContent = n;
+    updateLive();
+  }
+
+  /* ---------- actions ---------- */
+  function resetSession(carry) {
+    var old = S.session.inv || {}, inv = {};
+    Object.keys(old).forEach(function (k) {
+      var base = carry === 'now' ? old[k].now : old[k].start;
+      inv[k] = { start: base || 0, now: base || 0 };
+    });
+    S.session = { counts: {}, extra: 0, elapsedMs: 0, runningSince: null, inv: inv };
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-action]'); if (!b) return;
+    var a = b.dataset.action, id = b.dataset.id;
+    if (a === 'inc') {
+      var n = Number(b.dataset.n);
+      S.session.counts[id] = Math.max(0, (S.session.counts[id] || 0) + n);
+      save();
+      var was = $('session').querySelector('[data-action="finish"]').disabled;
+      if (was) { renderSession(); renderTabs(); }
+      updateCountsOnly(id);
+    } else if (a === 'toggle') {
+      if (S.session.runningSince) { S.session.elapsedMs += Date.now() - S.session.runningSince; S.session.runningSince = null; }
+      else { S.session.runningSince = Date.now(); }
+      save(); renderSession(); renderTabs();
+    } else if (a === 'finish') {
+      var total = totalSilver(), sp = spot(), dur = elapsed();
+      S.history.push({
+        id: uid(), date: Date.now(), spotName: sp.name, level: sp.level, durationMs: dur, total: total, extra: S.session.extra || 0,
+        items: sp.items.map(function (it) { return { name: it.name, count: itemCount(it), price: it.price, market: it.market, inv: !!it.inv, start: it.inv ? ((S.session.inv[it.id] || {}).start || 0) : undefined, now: it.inv ? ((S.session.inv[it.id] || {}).now || 0) : undefined }; }),
+        tax: S.tax
+      });
+      resetSession('now'); save(); renderAll(); toast('');
+    } else if (a === 'reset') {
+      resetSession('start'); save(); renderAll();
+    } else if (a === 'spot') {
+      if (id === S.current) return;
+      if (sessionActive()) { toast('Сначала завершите или сбросьте текущую сессию.'); return; }
+      S.current = id; save(); renderAll();
+    } else if (a === 'addSpot') {
+      var name = $('newSpotName').value.trim();
+      if (!name) { toast('Введите название спота.'); return; }
+      if (sessionActive()) { toast('Сначала завершите или сбросьте текущую сессию.'); return; }
+      var ns = { id: uid(), name: name, level: Number($('newSpotLvl').value) || '', items: [] };
+      S.spots.push(ns); S.current = ns.id;
+      $('newSpotName').value = ''; $('newSpotLvl').value = '';
+      save(); renderAll();
+    } else if (a === 'delSpot') {
+      if (S.spots.length < 2) return;
+      if (sessionActive()) { toast('Сначала завершите или сбросьте текущую сессию.'); return; }
+      S.spots = S.spots.filter(function (x) { return x.id !== S.current; });
+      S.current = S.spots[0].id; save(); renderAll();
+    } else if (a === 'addItem') {
+      var nm = $('newItemName').value.trim();
+      if (!nm) { toast('Введите название предмета.'); return; }
+      var pr = $('newItemPrice').value.trim() === '' ? 0 : parseSilver($('newItemPrice').value);
+      if (isNaN(pr)) { toast('Не понял цену. Примеры: 1500000, 1.5м, 250к.'); return; }
+      spot().items.push({ id: uid(), name: nm, price: pr, market: $('newItemMarket').checked, inv: $('newItemInv').checked });
+      $('newItemInv').checked = false;
+      $('newItemName').value = ''; $('newItemPrice').value = '';
+      save(); renderItems(); renderManage(); updateLive();
+    } else if (a === 'delItem') {
+      var sp2 = spot();
+      sp2.items = sp2.items.filter(function (x) { return x.id !== id; });
+      delete S.session.counts[id];
+      save(); renderAll();
+    } else if (a === 'exportPdf') {
+      exportPdf();
+    } else if (a === 'editHist') {
+      startEdit(id); renderHistory();
+    } else if (a === 'cancelHist') {
+      edit = null; renderHistory();
+    } else if (a === 'histAddItem') {
+      collectDraft(); edit.d.items.push({ name: '', count: 0 }); renderHistory();
+    } else if (a === 'histDelItem') {
+      collectDraft(); edit.d.items.splice(Number(b.dataset.i), 1); renderHistory();
+    } else if (a === 'histRecalc') {
+      collectDraft();
+      var rd = edit.d, rex = rd.extra.trim() === '' ? 0 : parseSilver(rd.extra);
+      if (isNaN(rex)) { hmsg('Не понял сумму хлама. Примеры: 40000000, 40м.'); return; }
+      var rx = S.history.find(function (h) { return h.id === edit.id; }) || {};
+      var rtax = rx.tax || S.tax, rt = rex, miss = [];
+      rd.items.forEach(function (i) {
+        var n = parseInt(i.count, 10) || 0;
+        if (n <= 0) return;
+        if (i.price === undefined) { miss.push(i.name || 'без названия'); return; }
+        rt += n * i.price * (i.market ? rtax / 100 : 1);
+      });
+      if (miss.length) { hmsg('Нет цены для: ' + miss.join(', ') + '. Впишите итог вручную.'); return; }
+      rd.total = String(Math.round(rt)); rd.extra = String(rex); renderHistory();
+    } else if (a === 'saveHist') {
+      collectDraft();
+      var sd = edit.d, sx = S.history.find(function (h) { return h.id === edit.id; });
+      if (!sx) { edit = null; renderHistory(); return; }
+      var snm = sd.spotName.trim();
+      if (!snm) { hmsg('Введите название спота.'); return; }
+      var sex = sd.extra.trim() === '' ? 0 : parseSilver(sd.extra);
+      var stt = sd.total.trim() === '' ? 0 : parseSilver(sd.total);
+      if (isNaN(sex) || isNaN(stt)) { hmsg('Не понял сумму серебра. Примеры: 40000000, 40м.'); return; }
+      var sh = parseInt(sd.h, 10) || 0, sm = parseInt(sd.m, 10) || 0;
+      if (sh < 0 || sm < 0) { hmsg('Длительность не может быть отрицательной.'); return; }
+      sx.spotName = snm; sx.level = Number(sd.level) || ''; sx.date = sd.date;
+      sx.durationMs = (sh * 60 + sm) * 60000; sx.extra = sex; sx.total = stt;
+      sx.items = sd.items.filter(function (i) { return String(i.name).trim(); }).map(function (i) {
+        return { name: String(i.name).trim(), count: Math.max(0, parseInt(i.count, 10) || 0), price: i.price, market: i.market, inv: i.inv, start: i.start, now: i.now };
+      });
+      edit = null; save(); renderHistory();
+    } else if (a === 'delHist') {
+      S.history = S.history.filter(function (x) { return x.id !== id; });
+      save(); renderHistory();
+    }
+  });
+
+  document.addEventListener('change', function (e) {
+    var t = e.target, f = t.dataset.field, id = t.dataset.id;
+    if (t.id === 'extra') {
+      var v = t.value.trim() === '' ? 0 : parseSilver(t.value);
+      if (isNaN(v)) { toast('Не понял сумму. Примеры: 40000000, 40м.'); t.value = S.session.extra || ''; return; }
+      S.session.extra = v; save(); renderSession(); renderTabs();
+      return;
+    }
+    if (t.id === 'tax') {
+      var tx = parseFloat(t.value);
+      if (!(tx > 0 && tx <= 100)) { t.value = S.tax; return; }
+      S.tax = tx; save(); renderItems(); updateLive();
+      return;
+    }
+    if (!f) return;
+    var sp = spot();
+    var it = id ? sp.items.find(function (x) { return x.id === id; }) : null;
+    if (f === 'spotName') { sp.name = t.value.trim() || sp.name; }
+    else if (f === 'spotLvl') { sp.level = Number(t.value) || ''; }
+    else if (f === 'itName' && it) { it.name = t.value.trim() || it.name; }
+    else if (f === 'itPrice' && it) {
+      var pv = t.value.trim() === '' ? 0 : parseSilver(t.value);
+      if (isNaN(pv)) { toast('Не понял цену. Примеры: 1500000, 1.5м, 250к.'); t.value = it.price; return; }
+      it.price = pv;
+    }
+    else if (f === 'itMarket' && it) { it.market = t.checked; }
+    else if (f === 'itInv' && it) { it.inv = t.checked; }
+    save(); renderAll();
+  });
+
+  document.addEventListener('input', function (e) {
+    var t = e.target, k = t.dataset.inv;
+    if (!k) return;
+    var id = t.dataset.id;
+    S.session.inv = S.session.inv || {};
+    var v = S.session.inv[id] || (S.session.inv[id] = { start: 0, now: 0 });
+    var val = Math.max(0, parseInt(t.value, 10) || 0);
+    if (k === 'start') {
+      if (v.now === v.start || v.now < val) {
+        v.now = val;
+        var ne = document.querySelector('[data-inv="now"][data-id="' + id + '"]');
+        if (ne) ne.value = val;
+      }
+      v.start = val;
+    } else { v.now = val; }
+    save(); renderSession(); renderTabs(); updateCountsOnly(id);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    if (e.target.id === 'newSpotName' || e.target.id === 'newSpotLvl') document.querySelector('[data-action="addSpot"]').click();
+    if (e.target.id === 'newItemName' || e.target.id === 'newItemPrice') document.querySelector('[data-action="addItem"]').click();
+    if (e.target.tagName === 'INPUT' && e.target.dataset.field) e.target.blur();
+    if (e.target.id === 'extra' || e.target.id === 'tax') e.target.blur();
+  });
+
+  /* ---------- экспорт в PDF ---------- */
+  var dlCap = null;
+  var fmtFull = function (n) { return nf.format(Math.round(n)); };
+
+  function buildPdf() {
+    var PW = 1240, PH = 1754, M = 90, CW = PW - 2 * M;
+    var pages = [], g, y;
+    var SANS = '"Golos Text", system-ui, Arial, sans-serif', SERIF = '"Philosopher", Georgia, serif';
+    function newPage() {
+      var c = document.createElement('canvas'); c.width = PW; c.height = PH;
+      g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.fillRect(0, 0, PW, PH);
+      pages.push(c); y = M;
+    }
+    function font(s, w, fam) { g.font = (w || 400) + ' ' + s + 'px ' + (fam || SANS); }
+    function ensure(h) { if (y + h > PH - M) newPage(); }
+    function fit(str, maxW) {
+      if (g.measureText(str).width <= maxW) return str;
+      while (str.length > 1 && g.measureText(str + '…').width > maxW) str = str.slice(0, -1);
+      return str + '…';
+    }
+    function wrap(str, maxW) {
+      var words = String(str).split(' '), lines = [], cur = '';
+      words.forEach(function (w) {
+        var t = cur ? cur + ' ' + w : w;
+        if (g.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else { cur = t; }
+      });
+      if (cur) lines.push(cur);
+      return lines;
+    }
+    function txt(str, x, yy, align) { g.textAlign = align || 'left'; g.textBaseline = 'alphabetic'; g.fillText(str, x, yy); }
+    function rule() { g.strokeStyle = '#d6dae2'; g.lineWidth = 2; g.beginPath(); g.moveTo(M, y); g.lineTo(PW - M, y); g.stroke(); }
+    function heading(str) {
+      ensure(130); y += 34; font(36, 700, SERIF); g.fillStyle = '#1c2028'; txt(str, M, y + 36); y += 62;
+    }
+    function table(cols, rows) {
+      ensure(110); font(21, 600); g.fillStyle = '#646b79';
+      cols.forEach(function (c) { txt(c.h, c.align === 'right' ? M + c.x + c.w : M + c.x, y + 22, c.align); });
+      y += 34; rule(); y += 6;
+      rows.forEach(function (r) {
+        ensure(50); font(24, 400); g.fillStyle = '#1c2028';
+        cols.forEach(function (c, i) { txt(fit(String(r[i]), c.w), c.align === 'right' ? M + c.x + c.w : M + c.x, y + 32, c.align); });
+        y += 46;
+      });
+    }
+
+    var H = S.history.slice().reverse();
+    var dur = 0, tot = 0, spots = {}, items = {};
+    H.forEach(function (x) {
+      dur += x.durationMs; tot += x.total;
+      var k = x.spotName + '|' + (x.level || '');
+      var sp = spots[k] || (spots[k] = { name: x.spotName + (x.level ? ' (Ур. ' + x.level + ')' : ''), n: 0, dur: 0, tot: 0 });
+      sp.n++; sp.dur += x.durationMs; sp.tot += x.total;
+      x.items.forEach(function (i) {
+        var it = items[i.name] || (items[i.name] = { name: i.name, count: 0, dur: 0 });
+        it.count += i.count; it.dur += x.durationMs;
+      });
+    });
+    var avg = dur >= 60000 ? tot / (dur / 3600000) : null;
+
+    newPage();
+    font(58, 700, SERIF); g.fillStyle = '#1c2028'; txt('Статистика фарма', M, y + 58); y += 84;
+    font(24); g.fillStyle = '#646b79';
+    txt('Black Desert · создано ' + new Date().toLocaleDateString('ru-RU'), M, y + 24); y += 56;
+
+    var stats = [['Сессий', String(H.length)], ['Время', fmtDur(dur)], ['Серебро всего', fmtFull(tot)], ['Серебро в час', avg === null ? '—' : fmtFull(avg)]];
+    var bw = CW / 4;
+    stats.forEach(function (s, i) {
+      g.fillStyle = '#646b79'; font(21); txt(s[0], M + i * bw, y + 20);
+      g.fillStyle = i >= 2 ? '#8a6420' : '#1c2028'; font(i >= 2 ? 27 : 32, 700, SERIF); txt(fit(s[1], bw - 16), M + i * bw, y + 62);
+    });
+    y += 90;
+
+    heading('По спотам');
+    table(
+      [{ h: 'Спот', x: 0, w: 310 }, { h: 'Сессий', x: 320, w: 80, align: 'right' }, { h: 'Время', x: 410, w: 150, align: 'right' }, { h: 'Серебро', x: 570, w: 240, align: 'right' }, { h: 'Серебро в час', x: 820, w: 240, align: 'right' }],
+      Object.keys(spots).map(function (k) {
+        var s = spots[k];
+        return [s.name, s.n, fmtDur(s.dur), fmtFull(s.tot), s.dur >= 60000 ? fmtFull(s.tot / (s.dur / 3600000)) : '—'];
+      })
+    );
+
+    var itemKeys = Object.keys(items).filter(function (k) { return items[k].count > 0; });
+    if (itemKeys.length) {
+      heading('Дроп за всё время');
+      table(
+        [{ h: 'Предмет', x: 0, w: 560 }, { h: 'Всего, шт.', x: 580, w: 200, align: 'right' }, { h: 'Штук в час', x: 800, w: 260, align: 'right' }],
+        itemKeys.map(function (k) {
+          var it = items[k];
+          return [it.name, nf.format(it.count), it.dur >= 60000 ? nf.format(Math.round(it.count / (it.dur / 3600000) * 10) / 10) : '—'];
+        })
+      );
+    }
+
+    heading('Сессии');
+    H.forEach(function (x) {
+      var d = new Date(x.date);
+      var ds = d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      var ph = x.durationMs >= 60000 ? fmtFull(x.total / (x.durationMs / 3600000)) + ' в час' : '—';
+      var parts = x.items.filter(function (i) { return i.count > 0; }).map(function (i) {
+        return i.name + ' ×' + i.count + (i.inv ? ' (было ' + nf.format(i.start || 0) + ' → стало ' + nf.format(i.now || 0) + ')' : '');
+      });
+      if (x.extra) parts.push('хлам ' + fmtFull(x.extra));
+      font(22);
+      var lines = wrap(parts.join(', ') || 'Без предметов', CW);
+      ensure(40 + 34 + lines.length * 32 + 30);
+      font(26, 600); g.fillStyle = '#1c2028';
+      txt(fit(x.spotName + (x.level ? ' · Ур. ' + x.level : ''), CW - 330), M, y + 30);
+      g.fillStyle = '#8a6420'; txt(fmtFull(x.total), PW - M, y + 30, 'right');
+      y += 40; font(21); g.fillStyle = '#646b79';
+      txt(ds + ' · ' + fmtDur(x.durationMs) + ' · ' + ph, M, y + 20); y += 34;
+      font(22); g.fillStyle = '#3a404c';
+      lines.forEach(function (l) { txt(l, M, y + 22); y += 32; });
+      y += 10; rule(); y += 16;
+    });
+
+    pages.forEach(function (c, i) {
+      var cx = c.getContext('2d');
+      cx.font = '400 20px ' + SANS; cx.fillStyle = '#8a8f9b'; cx.textAlign = 'right'; cx.textBaseline = 'alphabetic';
+      cx.fillText('стр. ' + (i + 1) + ' из ' + pages.length, PW - M, PH - 44);
+    });
+
+    /* сборка PDF: каждая страница — JPEG на листе A4 */
+    var enc = new TextEncoder(), chunks = [], pos = 0, offs = [];
+    function put(d) { var u = typeof d === 'string' ? enc.encode(d) : d; chunks.push(u); pos += u.length; }
+    function obj(n, dict, stream) {
+      offs[n] = pos; put(n + ' 0 obj\n' + dict + '\n');
+      if (stream) { put('stream\n'); put(stream); put('\nendstream\n'); }
+      put('endobj\n');
+    }
+    function jpegBytes(c) {
+      var b = atob(c.toDataURL('image/jpeg', 0.9).split(',')[1]), u = new Uint8Array(b.length);
+      for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+      return u;
+    }
+    var N = 2 + 3 * pages.length;
+    put('%PDF-1.4\n');
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    obj(2, '<< /Type /Pages /Count ' + pages.length + ' /Kids [' + pages.map(function (_, i) { return (3 + 3 * i) + ' 0 R'; }).join(' ') + '] >>');
+    pages.forEach(function (c, i) {
+      var pn = 3 + 3 * i, cn = 4 + 3 * i, im = 5 + 3 * i;
+      obj(pn, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 ' + im + ' 0 R >> >> /Contents ' + cn + ' 0 R >>');
+      var cs = 'q 595.28 0 0 841.89 0 0 cm /Im0 Do Q';
+      obj(cn, '<< /Length ' + enc.encode(cs).length + ' >>', cs);
+      var jb = jpegBytes(c);
+      obj(im, '<< /Type /XObject /Subtype /Image /Width ' + PW + ' /Height ' + PH + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jb.length + ' >>', jb);
+    });
+    var xpos = pos;
+    put('xref\n0 ' + (N + 1) + '\n0000000000 65535 f \n');
+    for (var n = 1; n <= N; n++) put(String(offs[n]).padStart(10, '0') + ' 00000 n \n');
+    put('trailer\n<< /Size ' + (N + 1) + ' /Root 1 0 R >>\nstartxref\n' + xpos + '\n%%EOF');
+    return new Blob(chunks, { type: 'application/pdf' });
+  }
+
+  async function exportPdf() {
+    var msg = $('pdfMsg');
+    if (!S.history.length) { msg.textContent = 'История пока пустая: экспортировать нечего.'; return; }
+    msg.textContent = 'Готовлю PDF…';
+    try {
+      await Promise.all([document.fonts.load('400 24px "Golos Text"'), document.fonts.load('600 24px "Golos Text"'), document.fonts.load('700 24px "Philosopher"')]);
+    } catch (e) {}
+    try {
+      var blob = buildPdf();
+      var url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = 'bdo-statistika-' + new Date().toISOString().slice(0, 10) + '.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+      msg.textContent = 'PDF сохранён.';
+    } catch (err) {
+      msg.textContent = (err && err.code === 'declined') ? 'Сохранение отменено.' : 'Не удалось сохранить PDF' + (err && err.message ? ': ' + err.message : '.');
+    }
+  }
+
+  /* ---------- синхронизация через Supabase ---------- */
+  var CFG = window.BDO_CONFIG || {};
+  var sb = null, sbUser = null, pollT = null;
+  var sync = { ready: false, pushing: false, again: false, t: null };
+  var clone = function (o) { return JSON.parse(JSON.stringify(o)); };
+  function setSync(msg) { var e = $('syncStatus'); if (e) e.textContent = msg; }
+  function stamp() { return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); }
+  function configured() {
+    return /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(String(CFG.url || '')) && String(CFG.anonKey || '').length > 40;
+  }
+  function schedulePush() {
+    if (!sync.ready) return;
+    clearTimeout(sync.t);
+    sync.t = setTimeout(push, 700);
+  }
+  var deferT = null;
+  function scheduleRender() {
+    var a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')) {
+      clearTimeout(deferT); deferT = setTimeout(scheduleRender, 1500); return;
+    }
+    if (edit) collectDraft();
+    renderAll();
+  }
+  function adopt(remote) {
+    var c = clone(remote);
+    S = Object.assign(defaults(), c);
+    S.session = Object.assign(defaults().session, c.session || {});
+    if (!Array.isArray(S.history)) S.history = [];
+    if (!S.spots || !S.spots.length) S.spots = defaults().spots;
+    if (!S.spots.some(function (x) { return x.id === S.current; })) S.current = S.spots[0].id;
+    revSig = canon(contentOfLocal());
+    persistLocal();
+  }
+
+  async function push() {
+    if (!sync.ready || !sbUser) return;
+    if (sync.pushing) { sync.again = true; return; }
+    sync.pushing = true; setSync('Синхронизация…');
+    try {
+      if (!S.rev) { S.rev = Date.now(); persistLocal(); }
+      var r = await sb.from('tracker_state').upsert({ user_id: sbUser.id, data: clone(S), updated_at: new Date().toISOString() });
+      if (r.error) throw r.error;
+      setSync('Синхронизировано в ' + stamp() + '. Данные хранятся в вашей базе Supabase.');
+    } catch (err) {
+      setSync('Не удалось сохранить в базу: ' + ((err && err.message) || 'ошибка') + '. Данные сохранены на этом устройстве.');
+    }
+    sync.pushing = false;
+    if (sync.again) { sync.again = false; schedulePush(); }
+  }
+
+  async function pull(initial) {
+    if (!sbUser || sync.pushing) return;
+    try {
+      var r = await sb.from('tracker_state').select('data').eq('user_id', sbUser.id).maybeSingle();
+      if (r.error) throw r.error;
+      var remote = r.data && r.data.data;
+      var rr = (remote && remote.rev) || 0, lr = S.rev || 0;
+      if (remote && rr > lr) {
+        adopt(remote); scheduleRender();
+        setSync('Синхронизировано в ' + stamp() + '. Данные хранятся в вашей базе Supabase.');
+      } else if (initial && (!remote || lr > rr)) {
+        sync.ready = true; await push();
+      } else if (initial) {
+        setSync('Синхронизировано в ' + stamp() + '. Данные хранятся в вашей базе Supabase.');
+      }
+    } catch (err) {
+      setSync('Не удалось загрузить данные: ' + ((err && err.message) || 'ошибка') + '. Работаем с данными на этом устройстве.');
+    }
+  }
+
+  async function startSync() {
+    var uid = sbUser.id;
+    var ownerKey = KEY + ':owner', owner = null;
+    try { owner = localStorage.getItem(ownerKey); } catch (e) {}
+    if (owner && owner !== uid) { S = defaults(); revSig = canon(contentOfLocal()); persistLocal(); renderAll(); }
+    try { localStorage.setItem(ownerKey, uid); } catch (e) {}
+    setSync('Загружаю данные…');
+    await pull(true);
+    sync.ready = true;
+    clearInterval(pollT);
+    pollT = setInterval(function () { if (!document.hidden) pull(false); }, 15000);
+  }
+  function stopSync() {
+    sync.ready = false; clearInterval(pollT); clearTimeout(sync.t);
+    setSync(configured() ? 'Вы не вошли: данные хранятся только в этом браузере.' : 'Облако не настроено: данные хранятся только в этом браузере.');
+  }
+
+  /* ---------- вход ---------- */
+  function authMsg(m) { var e = $('authMsg'); if (e) e.textContent = m || ''; }
+  function renderAuth() {
+    var p = $('authPanel'); if (!p) return;
+    if (!configured()) {
+      p.innerHTML = '<div class="hint" style="margin:0">Облако не настроено, поэтому данные хранятся только в этом браузере. Чтобы включить синхронизацию, впишите адрес и ключ проекта Supabase в начале файла (см. README).</div>';
+      return;
+    }
+    if (sbUser) {
+      p.innerHTML = '<div class="row" style="margin:0;justify-content:space-between"><div>Вы вошли как <b>' + esc(sbUser.email || '') + '</b></div><button class="btn" data-auth="out">Выйти</button></div>';
+    } else {
+      p.innerHTML = '<div class="row" style="margin-top:0"><input class="grow" type="text" id="authEmail" placeholder="Email" autocomplete="email" inputmode="email">' +
+        '<input class="grow" type="password" id="authPw" placeholder="Пароль (от 6 символов)" autocomplete="current-password"></div>' +
+        '<div class="controls"><button class="btn primary" data-auth="in">Войти</button><button class="btn" data-auth="up">Создать аккаунт</button></div>' +
+        '<div class="hint" id="authMsg"></div>';
+    }
+  }
+  async function doAuth(mode) {
+    var email = ($('authEmail').value || '').trim(), pw = $('authPw').value || '';
+    if (!email || pw.length < 6) { authMsg('Введите email и пароль не короче 6 символов.'); return; }
+    authMsg('Подождите…');
+    try {
+      var r = mode === 'up' ? await sb.auth.signUp({ email: email, password: pw }) : await sb.auth.signInWithPassword({ email: email, password: pw });
+      if (r.error) { authMsg(r.error.message); return; }
+      if (mode === 'up' && !r.data.session) authMsg('Аккаунт создан. Подтвердите почту по ссылке из письма, затем нажмите «Войти».');
+    } catch (err) { authMsg('Ошибка: ' + ((err && err.message) || 'нет связи')); }
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-auth]'); if (!b || !sb) return;
+    var a = b.dataset.auth;
+    if (a === 'out') { sb.auth.signOut(); } else { doAuth(a); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && (e.target.id === 'authPw' || e.target.id === 'authEmail')) doAuth('in');
+  });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && sync.ready) pull(false); });
+
+  function initSupabase() {
+    renderAuth();
+    if (!configured()) { stopSync(); return; }
+    if (!window.supabase || !window.supabase.createClient) { setSync('Не удалось загрузить библиотеку Supabase. Проверьте интернет.'); return; }
+    sb = window.supabase.createClient(CFG.url, CFG.anonKey);
+    sb.auth.onAuthStateChange(function (event, session) {
+      var prev = sbUser && sbUser.id;
+      sbUser = session ? session.user : null;
+      renderAuth();
+      if (sbUser) { if (sbUser.id !== prev) setTimeout(startSync, 0); } else { stopSync(); }
+    });
+  }
+
+  renderAll();
+  setInterval(updateLive, 500);
+  initSupabase();
+})();
+</script>
+</body>
+</html>
