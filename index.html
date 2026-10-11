@@ -174,6 +174,18 @@ summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
     <div id="history"></div>
   </section>
 
+  <section class="panel">
+    <h2>Резервная копия</h2>
+    <p class="hint">Сохраните споты, предметы и историю в файл или загрузите их из такого файла, например из другой версии трекера. При загрузке текущие данные заменяются.</p>
+    <div class="controls">
+      <button class="btn" data-bk="export">Скачать данные (JSON)</button>
+      <button class="btn" data-bk="pick">Загрузить из файла</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+    <div class="hint" id="bkMsg" role="status"></div>
+    <div id="bkConfirm"></div>
+  </section>
+
   <p class="hint">Данные сохраняются в браузере и синхронизируются между устройствами, если вы вошли в один и тот же аккаунт Claude.</p>
 </div>
 
@@ -959,6 +971,78 @@ window.BDO_CONFIG = {
       if (sbUser) { if (sbUser.id !== prev) setTimeout(startSync, 0); } else { stopSync(); }
     });
   }
+
+  /* ---------- резервная копия ---------- */
+  var pendingImport = null;
+  function bkMsg(m) { var e = $('bkMsg'); if (e) e.textContent = m || ''; }
+  function bkConfirm(h) { var e = $('bkConfirm'); if (e) e.innerHTML = h || ''; }
+  async function saveTextFile(name, text) {
+    var url = URL.createObjectURL(new Blob([text], { type: 'application/json' })), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+  }
+  async function exportData() {
+    var payload = { app: 'bdo-tracker', version: 1, exportedAt: new Date().toISOString(), data: JSON.parse(JSON.stringify(S)) };
+    try {
+      await saveTextFile('bdo-tracker-backup-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(payload, null, 1));
+      bkMsg('Файл с данными подготовлен.');
+    } catch (err) {
+      bkMsg((err && err.code === 'declined') ? 'Сохранение отменено.' : 'Не удалось сохранить файл' + (err && err.message ? ': ' + err.message : '.'));
+    }
+  }
+  function applyImport(obj) {
+    var c = JSON.parse(JSON.stringify(obj));
+    S = Object.assign(defaults(), c);
+    S.session = Object.assign(defaults().session, c.session || {});
+    if (!Array.isArray(S.history)) S.history = [];
+    S.spots.forEach(function (sp) {
+      if (!sp.id) sp.id = uid();
+      if (!Array.isArray(sp.items)) sp.items = [];
+      sp.items.forEach(function (it) { if (!it.id) it.id = uid(); });
+    });
+    S.history.forEach(function (h) { if (!h.id) h.id = uid(); if (!Array.isArray(h.items)) h.items = []; });
+    if (!S.spots.some(function (x) { return x.id === S.current; })) S.current = S.spots[0].id;
+    S.rev = Date.now();
+    revSig = canon(contentOfLocal());
+    edit = null;
+    persistLocal();
+    renderAll();
+    schedulePush();
+  }
+  function readImport(file) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      try {
+        var obj = JSON.parse(String(fr.result));
+        var d = obj && obj.data ? obj.data : obj;
+        if (!d || !Array.isArray(d.spots) || !d.spots.length) throw new Error('bad');
+        pendingImport = d;
+        var n = Array.isArray(d.history) ? d.history.length : 0;
+        bkMsg('');
+        bkConfirm('<div class="hint">В файле: спотов — ' + d.spots.length + ', сессий в истории — ' + n + '. Текущие данные будут заменены.</div>' +
+          '<div class="controls"><button class="btn primary" data-bk="confirm">Заменить данные</button><button class="btn" data-bk="cancel">Отмена</button></div>');
+      } catch (e) {
+        pendingImport = null; bkConfirm('');
+        bkMsg('Это не файл с данными трекера. Выберите файл, скачанный кнопкой «Скачать данные».');
+      }
+    };
+    fr.onerror = function () { bkMsg('Не удалось прочитать файл.'); };
+    fr.readAsText(file);
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-bk]'); if (!b) return;
+    var a = b.dataset.bk;
+    if (a === 'export') exportData();
+    else if (a === 'pick') $('importFile').click();
+    else if (a === 'confirm' && pendingImport) { applyImport(pendingImport); pendingImport = null; bkConfirm(''); bkMsg('Данные загружены.'); }
+    else if (a === 'cancel') { pendingImport = null; bkConfirm(''); }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.id !== 'importFile') return;
+    var f = e.target.files && e.target.files[0];
+    if (f) readImport(f);
+    e.target.value = '';
+  });
 
   renderAll();
   setInterval(updateLive, 500);
