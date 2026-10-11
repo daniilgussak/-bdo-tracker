@@ -952,7 +952,7 @@ window.BDO_CONFIG = {
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-auth]'); if (!b || !sb) return;
     var a = b.dataset.auth;
-    if (a === 'out') { sb.auth.signOut({ scope: 'local' }); } else { doAuth(a); }
+    if (a === 'out') { sb.auth.signOut({ scope: 'local' }).finally(function () { location.reload(); }); } else { doAuth(a); }
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && (e.target.id === 'authPw' || e.target.id === 'authEmail')) doAuth('in');
