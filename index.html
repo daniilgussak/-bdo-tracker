@@ -95,7 +95,7 @@ details { margin-bottom: 14px; }
 summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
 .row .grow { flex: 1 1 160px; }
-.mrow { display: grid; grid-template-columns: 1fr 120px auto auto auto; gap: 8px; align-items: center; padding: 6px 0; }
+.mrow { display: grid; grid-template-columns: 1fr 120px auto auto auto auto; gap: 8px; align-items: center; padding: 6px 0; }
 .mrow label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--muted); }
 .hint { color: var(--muted); font-size: 13px; margin: 6px 0; }
 
@@ -113,6 +113,17 @@ summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 .hedit .he-item.he-inv { grid-template-columns: 1fr 80px 80px auto; }
 .hedit label { color: var(--muted); font-size: 13px; }
 .hedit .toast { margin: 0; }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font: 12px "Golos Text", system-ui, sans-serif; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .bar { fill: var(--gold); }
+.chart .hit { fill: transparent; cursor: pointer; }
+.chart .hit:hover { fill: rgba(128, 128, 128, .14); }
+.chart text.lbl { fill: var(--text); font-size: 14px; }
+.chart text.val { fill: var(--gold); font-size: 14px; font-weight: 600; }
+.sh { font-size: 15px; font-weight: 600; margin: 20px 0 8px; }
+.btn[aria-pressed="true"] { border-color: var(--gold); background: var(--gold-bg); }
+input[type="date"], input[type="datetime-local"] { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; min-width: 0; }
 @media (min-width: 640px) {
   .hero { grid-template-columns: auto 1fr; align-items: end; gap: 28px; }
   .clock { font-size: 72px; }
@@ -158,6 +169,7 @@ summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
       <input type="text" id="newItemPrice" placeholder="Цена: 1500000 или 1.5м" style="width:170px" inputmode="decimal">
       <label style="display:flex;gap:5px;align-items:center;color:var(--muted);font-size:13px"><input type="checkbox" id="newItemMarket" checked> рынок</label>
       <label style="display:flex;gap:5px;align-items:center;color:var(--muted);font-size:13px"><input type="checkbox" id="newItemInv"> по инвентарю</label>
+      <label style="display:flex;gap:5px;align-items:center;color:var(--muted);font-size:13px"><input type="checkbox" id="newItemRare"> редкий</label>
       <button class="btn primary" data-action="addItem">Добавить предмет</button>
     </div>
     <p class="hint">Галочка «по инвентарю»: вместо кнопок +1/+10 вы вводите, сколько предмета было в инвентаре и сколько стало, дроп считается как разница. Подходит для Чёрного камня, который падает сразу в инвентарь. <br>Цену можно писать с суффиксом: 1.5м = 1 500 000, 250к = 250 000, 2млрд = 2 000 000 000. Галочка «рынок» — из цены вычитается налог рынка, без галочки (торговец NPC) цена считается полностью.</p>
@@ -167,6 +179,26 @@ summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
       <span class="hint" style="margin:0">65 — без пакета, 84.5 — с Value Pack, больше — с бонусами.</span>
     </div>
   </details>
+
+  <section class="panel" id="statsPanel">
+    <h2>Статистика</h2>
+    <div id="stats"></div>
+  </section>
+
+  <section class="panel" id="rarePanel">
+    <h2>Редкий дроп: часы до выпадения</h2>
+    <p class="hint" style="margin-top:0">Добавьте запись вручную: дата, сколько часов вы фармили и сколько штук выпало (0, если не выпало). Записи объединяются с завершёнными сессиями.</p>
+    <div class="row">
+      <input class="grow" type="text" id="rl-name" list="rl-names" placeholder="Предмет" autocomplete="off" aria-label="Предмет">
+      <datalist id="rl-names"></datalist>
+      <input type="date" id="rl-date" aria-label="Дата">
+      <input type="text" id="rl-hours" inputmode="decimal" placeholder="Часов" style="width:90px" aria-label="Часов фарма">
+      <input type="number" id="rl-count" min="0" value="0" style="width:90px" aria-label="Выпало штук">
+    </div>
+    <div class="controls"><button class="btn primary" id="rl-save" data-rl="add">Добавить запись</button><button class="btn" id="rl-cancel" data-rl="cancel" hidden>Отмена</button></div>
+    <div class="hint" id="rl-msg" role="status"></div>
+    <div id="rare"></div>
+  </section>
 
   <section class="panel">
     <div class="row" style="justify-content:space-between;margin-top:0"><h2 style="margin:0">История сессий</h2><button class="btn" id="pdfBtn" data-action="exportPdf">Сохранить в PDF</button></div>
@@ -209,6 +241,7 @@ window.BDO_CONFIG = {
       current: id,
       session: { counts: {}, extra: 0, elapsedMs: 0, runningSince: null, inv: {} },
       history: [],
+      rareLog: [],
       tax: 65
     };
   }
@@ -221,7 +254,7 @@ window.BDO_CONFIG = {
     }
   } catch (e) {}
   function persistLocal() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
-  function contentOfLocal() { return { spots: S.spots, current: S.current, session: S.session, tax: S.tax, history: S.history }; }
+  function contentOfLocal() { return { spots: S.spots, current: S.current, session: S.session, tax: S.tax, history: S.history, rareLog: S.rareLog || [] }; }
   function canon(v) {
     if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
     if (v && typeof v === 'object') {
@@ -367,6 +400,7 @@ window.BDO_CONFIG = {
         '<input type="text" data-field="itPrice" data-id="' + it.id + '" value="' + it.price + '" inputmode="decimal" aria-label="Цена">' +
         '<label><input type="checkbox" data-field="itMarket" data-id="' + it.id + '"' + (it.market ? ' checked' : '') + '> рынок</label>' +
         '<label><input type="checkbox" data-field="itInv" data-id="' + it.id + '"' + (it.inv ? ' checked' : '') + '> по инвентарю</label>' +
+        '<label><input type="checkbox" data-field="itRare" data-id="' + it.id + '"' + (it.rare ? ' checked' : '') + '> редкий</label>' +
         '<button class="btn danger" data-action="delItem" data-id="' + it.id + '" aria-label="Удалить предмет">Удалить</button></div>';
     }).join('');
     $('manage').innerHTML = h;
@@ -424,7 +458,7 @@ window.BDO_CONFIG = {
       items: x.items.map(function (i) {
         var p = i.price, mk = i.market;
         if (p === undefined) { var f = findItem(i.name); if (f) { p = f.price; mk = f.market; } }
-        return { name: i.name, count: i.count, price: p, market: mk, inv: i.inv, start: i.start, now: i.now };
+        return { name: i.name, count: i.count, price: p, market: mk, inv: i.inv, rare: i.rare, start: i.start, now: i.now };
       })
     } };
   }
@@ -522,7 +556,7 @@ window.BDO_CONFIG = {
       var total = totalSilver(), sp = spot(), dur = elapsed();
       S.history.push({
         id: uid(), date: Date.now(), spotName: sp.name, level: sp.level, durationMs: dur, total: total, extra: S.session.extra || 0,
-        items: sp.items.map(function (it) { return { name: it.name, count: itemCount(it), price: it.price, market: it.market, inv: !!it.inv, start: it.inv ? ((S.session.inv[it.id] || {}).start || 0) : undefined, now: it.inv ? ((S.session.inv[it.id] || {}).now || 0) : undefined }; }),
+        items: sp.items.map(function (it) { return { name: it.name, count: itemCount(it), price: it.price, market: it.market, inv: !!it.inv, rare: !!it.rare, start: it.inv ? ((S.session.inv[it.id] || {}).start || 0) : undefined, now: it.inv ? ((S.session.inv[it.id] || {}).now || 0) : undefined }; }),
         tax: S.tax
       });
       resetSession('now'); save(); renderAll(); toast('');
@@ -550,8 +584,8 @@ window.BDO_CONFIG = {
       if (!nm) { toast('Введите название предмета.'); return; }
       var pr = $('newItemPrice').value.trim() === '' ? 0 : parseSilver($('newItemPrice').value);
       if (isNaN(pr)) { toast('Не понял цену. Примеры: 1500000, 1.5м, 250к.'); return; }
-      spot().items.push({ id: uid(), name: nm, price: pr, market: $('newItemMarket').checked, inv: $('newItemInv').checked });
-      $('newItemInv').checked = false;
+      spot().items.push({ id: uid(), name: nm, price: pr, market: $('newItemMarket').checked, inv: $('newItemInv').checked, rare: $('newItemRare').checked });
+      $('newItemInv').checked = false; $('newItemRare').checked = false;
       $('newItemName').value = ''; $('newItemPrice').value = '';
       save(); renderItems(); renderManage(); updateLive();
     } else if (a === 'delItem') {
@@ -597,7 +631,7 @@ window.BDO_CONFIG = {
       sx.spotName = snm; sx.level = Number(sd.level) || ''; sx.date = sd.date;
       sx.durationMs = (sh * 60 + sm) * 60000; sx.extra = sex; sx.total = stt;
       sx.items = sd.items.filter(function (i) { return String(i.name).trim(); }).map(function (i) {
-        return { name: String(i.name).trim(), count: Math.max(0, parseInt(i.count, 10) || 0), price: i.price, market: i.market, inv: i.inv, start: i.start, now: i.now };
+        return { name: String(i.name).trim(), count: Math.max(0, parseInt(i.count, 10) || 0), price: i.price, market: i.market, inv: i.inv, rare: i.rare, start: i.start, now: i.now };
       });
       edit = null; save(); renderHistory();
     } else if (a === 'delHist') {
@@ -633,6 +667,7 @@ window.BDO_CONFIG = {
     }
     else if (f === 'itMarket' && it) { it.market = t.checked; }
     else if (f === 'itInv' && it) { it.inv = t.checked; }
+    else if (f === 'itRare' && it) { it.rare = t.checked; }
     save(); renderAll();
   });
 
@@ -952,7 +987,7 @@ window.BDO_CONFIG = {
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-auth]'); if (!b || !sb) return;
     var a = b.dataset.auth;
-    if (a === 'out') { sb.auth.signOut({ scope: 'local' }).finally(function () { location.reload(); }); } else { doAuth(a); }
+    if (a === 'out') { sb.auth.signOut({ scope: 'local' }); } else { doAuth(a); }
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && (e.target.id === 'authPw' || e.target.id === 'authEmail')) doAuth('in');
@@ -1043,6 +1078,280 @@ window.BDO_CONFIG = {
     if (f) readImport(f);
     e.target.value = '';
   });
+
+  /* ---------- статистика и графики ---------- */
+  var statsRange = '30', statsItem = '', statInfo = {};
+  function niceMax(m) {
+    var p = Math.pow(10, Math.floor(Math.log10(m))), s = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+    for (var i = 0; i < s.length; i++) if (s[i] * p >= m) return s[i] * p;
+    return 10 * p;
+  }
+  function shortDate(ms) { return new Date(ms).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }); }
+  function fmtRate(v) { return nf.format(Math.round(v * 10) / 10); }
+
+  function barSvg(pts, fmt, key) {
+    var W = 640, H = 250, ml = 62, mr = 8, mt = 12, mb = 30, pw = W - ml - mr, ph = H - mt - mb, n = pts.length;
+    var max = 0; pts.forEach(function (p) { if (p.v > max) max = p.v; });
+    var top = niceMax(max > 0 ? max : 1), g = '';
+    for (var t = 0; t <= 4; t++) {
+      var y = mt + ph - ph * t / 4;
+      g += '<line class="grid" x1="' + ml + '" x2="' + (W - mr) + '" y1="' + y + '" y2="' + y + '"/>' +
+        '<text x="' + (ml - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + esc(fmt(top * t / 4)) + '</text>';
+    }
+    var cw = pw / n, bw = Math.min(36, cw * 0.72), step = Math.ceil(n / 6);
+    pts.forEach(function (p, i) {
+      var x = ml + i * cw, bh = ph * p.v / top, bx = x + (cw - bw) / 2;
+      g += '<rect class="bar" x="' + bx + '" y="' + (mt + ph - bh) + '" width="' + bw + '" height="' + Math.max(bh, 1) + '" rx="3"/>';
+      g += '<rect class="hit" data-ck="' + key + '" data-i="' + i + '" x="' + x + '" y="' + mt + '" width="' + cw + '" height="' + ph + '"/>';
+      if (i % step === 0) g += '<text x="' + (x + cw / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(p.label) + '</text>';
+    });
+    return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="График">' + g + '</svg>';
+  }
+
+  function spotsSvg(rows) {
+    var W = 640, rh = 50, H = rows.length * rh + 8, max = rows[0].v > 0 ? rows[0].v : 1, g = '';
+    rows.forEach(function (r, i) {
+      var y = i * rh + 4, w = Math.max(3, W * r.v / max);
+      var name = r.label.length > 38 ? r.label.slice(0, 37) + '\u2026' : r.label;
+      g += '<text class="lbl" x="0" y="' + (y + 14) + '">' + esc(name) + '</text>' +
+        '<text class="val" x="' + W + '" y="' + (y + 14) + '" text-anchor="end">' + esc(fmtSilver(r.v)) + ' / ч</text>' +
+        '<rect class="bar" x="0" y="' + (y + 22) + '" width="' + w + '" height="14" rx="3"/>' +
+        '<rect class="hit" data-ck="p" data-i="' + i + '" x="0" y="' + y + '" width="' + W + '" height="' + (rh - 4) + '"/>';
+    });
+    return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Сравнение спотов">' + g + '</svg>';
+  }
+
+  function renderStats() {
+    var el = $('stats'); if (!el) return;
+    var days = statsRange === 'all' ? 0 : Number(statsRange), now = Date.now();
+    var H = S.history.filter(function (x) { return !days || x.date >= now - days * 864e5; }).sort(function (a, b) { return a.date - b.date; });
+    var html = '<div class="row" style="margin-top:0">' + [['7', '7 дней'], ['30', '30 дней'], ['all', 'Всё время']].map(function (r) {
+      return '<button class="btn" data-sr="' + r[0] + '" aria-pressed="' + (statsRange === r[0]) + '">' + r[1] + '</button>';
+    }).join('') + '</div>';
+    if (!H.length) { el.innerHTML = html + '<p class="empty">За этот период нет завершённых сессий.</p>'; return; }
+    var nodata = '<p class="empty">Недостаточно данных: нужны сессии длиннее минуты.</p>';
+    statInfo.s = []; statInfo.p = []; statInfo.i = [];
+    var detail = function (k) { return '<div class="hint" id="statDetail-' + k + '">Нажмите на столбик, чтобы увидеть подробности.</div>'; };
+
+    /* 1. серебро в час по сессиям */
+    var pts = [], sumT = 0, sumH = 0, best = 0;
+    H.forEach(function (x) {
+      if (x.durationMs < 60000) return;
+      var hrs = x.durationMs / 3600000, v = x.total / hrs;
+      sumT += x.total; sumH += hrs; if (v > best) best = v;
+      pts.push({ v: v, label: shortDate(x.date), info: shortDate(x.date) + ' \u00b7 ' + x.spotName + ' \u00b7 ' + fmtDur(x.durationMs) + ' \u00b7 ' + fmtSilver(x.total) + ' всего \u00b7 ' + fmtSilver(v) + ' в час' });
+    });
+    pts = pts.slice(-40);
+    html += '<h3 class="sh">Серебро в час по сессиям</h3>';
+    if (pts.length) {
+      statInfo.s = pts.map(function (p) { return p.info; });
+      html += barSvg(pts, fmtSilver, 's') + '<div class="hint">Среднее за период: <b>' + fmtSilver(sumT / sumH) + '</b> в час \u00b7 лучшая сессия: <b>' + fmtSilver(best) + '</b></div>' + detail('s');
+    } else html += nodata;
+
+    /* 2. сравнение спотов */
+    var groups = {};
+    H.forEach(function (x) {
+      if (x.durationMs < 60000) return;
+      var k = x.spotName + '|' + (x.level || '');
+      var g = groups[k] || (groups[k] = { label: x.spotName + (x.level ? ' (Ур. ' + x.level + ')' : ''), tot: 0, dur: 0, n: 0 });
+      g.tot += x.total; g.dur += x.durationMs; g.n++;
+    });
+    var rows = Object.keys(groups).map(function (k) { var g = groups[k]; g.v = g.tot / (g.dur / 3600000); return g; }).sort(function (a, b) { return b.v - a.v; });
+    html += '<h3 class="sh">Сравнение спотов (серебро в час)</h3>';
+    if (rows.length) {
+      statInfo.p = rows.map(function (r) { return r.label + ' \u00b7 сессий: ' + r.n + ' \u00b7 время: ' + fmtDur(r.dur) + ' \u00b7 серебра: ' + fmtSilver(r.tot) + ' \u00b7 в среднем ' + fmtSilver(r.v) + ' в час'; });
+      html += spotsSvg(rows) + detail('p');
+    } else html += nodata;
+
+    /* 3. дроп предмета */
+    var totals = {};
+    H.forEach(function (x) { x.items.forEach(function (i) { if (i.count > 0) totals[i.name] = (totals[i.name] || 0) + i.count; }); });
+    var names = Object.keys(totals).sort(function (a, b) { return totals[b] - totals[a]; });
+    if (names.length) {
+      if (names.indexOf(statsItem) < 0) statsItem = names[0];
+      var ipts = [];
+      H.forEach(function (x) {
+        if (x.durationMs < 60000) return;
+        var it = x.items.filter(function (i) { return i.name === statsItem; })[0];
+        if (!it) return;
+        var v = it.count / (x.durationMs / 3600000);
+        ipts.push({ v: v, label: shortDate(x.date), info: shortDate(x.date) + ' \u00b7 ' + x.spotName + ' \u00b7 ' + it.count + ' шт. за ' + fmtDur(x.durationMs) + ' \u00b7 ' + fmtRate(v) + ' шт. в час' });
+      });
+      ipts = ipts.slice(-40);
+      html += '<h3 class="sh">Дроп предмета в час</h3><div class="row" style="margin-top:0"><label class="hint" for="statItem" style="margin:0">Предмет</label><select id="statItem">' +
+        names.map(function (n) { return '<option value="' + esc(n) + '"' + (n === statsItem ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></div>';
+      if (ipts.length) {
+        statInfo.i = ipts.map(function (p) { return p.info; });
+        html += barSvg(ipts, fmtRate, 'i') + detail('i');
+      } else html += nodata;
+    }
+    el.innerHTML = html;
+  }
+
+  document.addEventListener('click', function (e) {
+    var r = e.target.closest('[data-sr]');
+    if (r) { statsRange = r.dataset.sr; renderStats(); return; }
+    var h = e.target.closest('[data-ck]');
+    if (h) {
+      var k = h.dataset.ck, i = Number(h.dataset.i), d = $('statDetail-' + k);
+      if (d && statInfo[k] && statInfo[k][i]) d.textContent = statInfo[k][i];
+    }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.id === 'statItem') { statsItem = e.target.value; renderStats(); }
+  });
+  var renderHistoryBase = renderHistory;
+  renderHistory = function () { renderHistoryBase(); renderStats(); renderRare(); };
+
+  /* ---------- редкий дроп: часы до выпадения ---------- */
+  var TELE = ['Деталь телескопа Рафи Бэдмаунтина №1', 'Деталь телескопа Рафи Бэдмаунтина №2'];
+  var rareSel = '', rlEdit = null;
+  var nm = function (s) { return String(s).trim().toLowerCase(); };
+  var fmtHrs = function (h) { return nf.format(Math.round(h * 10) / 10) + ' ч'; };
+  function parseHours(str) {
+    var s = String(str).trim().toLowerCase().replace(',', '.'), m = s.match(/^(\d+):(\d{1,2})$/);
+    if (m) return Number(m[1]) + Number(m[2]) / 60;
+    if (/^\d*\.?\d+$/.test(s)) return parseFloat(s);
+    return NaN;
+  }
+  function dateFromInput(v) {
+    var p = String(v).split('-');
+    if (p.length !== 3) return NaN;
+    return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]), 12).getTime();
+  }
+  function rareStats(name, H) {
+    var recs = [], key = nm(name);
+    H.forEach(function (x) {
+      var it = x.items.filter(function (i) { return nm(i.name) === key; })[0];
+      if (it) recs.push({ date: x.date, hrs: x.durationMs / 3600000, count: it.count, spot: x.spotName });
+    });
+    (S.rareLog || []).forEach(function (e) {
+      if (nm(e.name) === key) recs.push({ date: e.date, hrs: e.hours, count: e.count, spot: 'запись вручную' });
+    });
+    recs.sort(function (a, b) { return a.date - b.date; });
+    var r = { sessions: recs.length, hours: 0, drops: 0, since: 0, events: [] };
+    recs.forEach(function (x) {
+      r.hours += x.hrs;
+      if (x.count > 0) {
+        r.events.push({ date: x.date, spot: x.spot, count: x.count, hours: r.since + x.hrs });
+        r.drops += x.count; r.since = 0;
+      } else { r.since += x.hrs; }
+    });
+    return r;
+  }
+  function rlReset() {
+    rlEdit = null;
+    $('rl-hours').value = ''; $('rl-count').value = '0';
+    $('rl-save').textContent = 'Добавить запись'; $('rl-cancel').hidden = true;
+  }
+  function renderRare() {
+    var el = $('rare'); if (!el) return;
+    var set = {};
+    var put = function (n) { if (!set[nm(n)]) set[nm(n)] = n; };
+    S.spots.forEach(function (sp) { sp.items.forEach(function (it) { if (it.rare) put(it.name); }); });
+    S.history.forEach(function (x) { x.items.forEach(function (i) { if (i.rare) put(i.name); }); });
+    (S.rareLog || []).forEach(function (e) { put(e.name); });
+    var list = Object.keys(set).map(function (k) { return set[k]; });
+    var dl = $('rl-names'); if (dl) dl.innerHTML = list.map(function (n) { return '<option value="' + esc(n) + '"></option>'; }).join('');
+
+    var html = '<div class="row" style="margin-top:0"><button class="btn" data-tele="add">Добавить детали телескопа в спот</button>' +
+      '<span class="hint" style="margin:0">«' + esc(spot().name) + '»: чтобы считать их кнопками во время фарма</span></div><div class="hint" id="teleMsg" role="status"></div>';
+    if (!list.length) {
+      el.innerHTML = html + '<p class="empty">Пока нет данных. Добавьте запись вручную выше или отметьте предмет галочкой «редкий» в разделе «Споты и предметы».</p>';
+      return;
+    }
+    var H = S.history.slice().sort(function (a, b) { return a.date - b.date; });
+    var stat = function (k, v) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + esc(v) + '</div></div>'; };
+    var withEv = [];
+    list.forEach(function (name) {
+      var r = rareStats(name, H);
+      if (r.events.length) withEv.push(name);
+      html += '<div style="margin-top:14px"><div class="item-name">' + esc(name) + '</div>';
+      if (!r.sessions) {
+        html += '<p class="empty">Пока нет данных по этому предмету.</p>';
+      } else {
+        html += '<div class="totals" style="margin-top:8px">' + stat('Выпало', nf.format(r.drops) + ' шт.') + stat('Часов фарма', fmtHrs(r.hours)) +
+          stat('Часов на 1 шт.', r.drops ? fmtHrs(r.hours / r.drops) : '\u2014') + stat('Без дропа сейчас', fmtHrs(r.since)) + '</div>';
+      }
+      html += '</div>';
+    });
+    if (withEv.length) {
+      if (withEv.indexOf(rareSel) < 0) rareSel = withEv[0];
+      var ev = rareStats(rareSel, H).events.slice(-40);
+      var pts = ev.map(function (e) {
+        return { v: e.hours, label: shortDate(e.date), info: shortDate(e.date) + ' \u00b7 ' + e.spot + ' \u00b7 выпало ' + e.count + ' шт. \u00b7 часов фарма до выпадения: ' + fmtHrs(e.hours) };
+      });
+      statInfo.r = pts.map(function (p) { return p.info; });
+      html += '<h3 class="sh">Часов фарма до каждого выпадения</h3>';
+      if (withEv.length > 1) {
+        html += '<div class="row" style="margin-top:0"><label class="hint" for="rareItem" style="margin:0">Предмет</label><select id="rareItem">' +
+          withEv.map(function (n) { return '<option value="' + esc(n) + '"' + (n === rareSel ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></div>';
+      }
+      html += barSvg(pts, fmtRate, 'r') + '<div class="hint" id="statDetail-r">Нажмите на столбик, чтобы увидеть подробности. В часы входит всё время фарма с прошлого выпадения.</div>';
+    }
+    var log = (S.rareLog || []).slice().sort(function (a, b) { return b.date - a.date; });
+    if (log.length) {
+      html += '<h3 class="sh">Записи, добавленные вручную</h3>' + log.map(function (e) {
+        return '<div class="hist"><div><div class="t">' + esc(e.name) + '</div><div class="m">' + new Date(e.date).toLocaleDateString('ru-RU') + ' \u00b7 ' + fmtHrs(e.hours) + ' \u00b7 выпало ' + e.count + ' шт.</div></div>' +
+          '<div style="display:flex;gap:8px;align-items:center"><button class="btn" style="padding:4px 10px" data-rl="edit" data-id="' + e.id + '">Изменить</button>' +
+          '<button class="btn danger" style="padding:4px 10px" data-rl="del" data-id="' + e.id + '">Удалить</button></div></div>';
+      }).join('');
+    }
+    el.innerHTML = html;
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tele]'); if (!b) return;
+    var sp = spot(), added = 0;
+    TELE.forEach(function (name) {
+      var ex = sp.items.filter(function (i) { return i.name === name; })[0];
+      if (ex) { if (!ex.rare) { ex.rare = true; added++; } }
+      else { sp.items.push({ id: uid(), name: name, price: 0, market: false, inv: false, rare: true }); added++; }
+    });
+    save(); renderAll();
+    var m = $('teleMsg'); if (m) m.textContent = added ? 'Детали телескопа добавлены в спот «' + sp.name + '».' : 'Эти предметы уже есть в этом споте.';
+  });
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-rl]'); if (!b) return;
+    var a = b.dataset.rl, id = b.dataset.id, msg = $('rl-msg');
+    S.rareLog = S.rareLog || [];
+    if (a === 'add') {
+      var name = $('rl-name').value.trim(), hrs = parseHours($('rl-hours').value);
+      var cnt = parseInt($('rl-count').value, 10), dt = dateFromInput($('rl-date').value);
+      if (!name) { msg.textContent = 'Введите название предмета.'; return; }
+      if (isNaN(dt)) { msg.textContent = 'Укажите дату.'; return; }
+      if (isNaN(hrs) || hrs < 0) { msg.textContent = 'Введите часы фарма: 12, 12,5 или 12:30.'; return; }
+      if (isNaN(cnt) || cnt < 0) { msg.textContent = 'Количество выпавших штук — число от 0.'; return; }
+      if (rlEdit) {
+        var ex = S.rareLog.filter(function (x) { return x.id === rlEdit; })[0];
+        if (ex) { ex.name = name; ex.date = dt; ex.hours = hrs; ex.count = cnt; }
+      } else {
+        S.rareLog.push({ id: uid(), name: name, date: dt, hours: hrs, count: cnt });
+      }
+      var wasEdit = !!rlEdit;
+      rlReset(); save(); renderAll();
+      $('rl-msg').textContent = wasEdit ? 'Запись обновлена.' : 'Запись добавлена.';
+    } else if (a === 'cancel') {
+      rlReset(); msg.textContent = '';
+    } else if (a === 'edit') {
+      var r = S.rareLog.filter(function (x) { return x.id === id; })[0]; if (!r) return;
+      rlEdit = id;
+      $('rl-name').value = r.name; $('rl-date').value = toLocalInput(r.date).slice(0, 10);
+      $('rl-hours').value = String(Math.round(r.hours * 100) / 100).replace('.', ','); $('rl-count').value = r.count;
+      $('rl-save').textContent = 'Сохранить запись'; $('rl-cancel').hidden = false;
+      msg.textContent = 'Измените значения выше и нажмите «Сохранить запись».';
+      $('rl-name').scrollIntoView({ block: 'center' });
+    } else if (a === 'del') {
+      S.rareLog = S.rareLog.filter(function (x) { return x.id !== id; });
+      if (rlEdit === id) rlReset();
+      save(); renderAll();
+    }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.id === 'rareItem') { rareSel = e.target.value; renderRare(); }
+  });
+  (function () { var d = $('rl-date'); if (d && !d.value) d.value = toLocalInput(Date.now()).slice(0, 10); })();
 
   renderAll();
   setInterval(updateLive, 500);
